@@ -152,19 +152,35 @@ class GoogleDriveDownloader:
 
             # Verify critical files
             st.info("🔍 Verifying extracted files...")
-            required_files = ["faiss_index.bin", "chunks_metadata.json"]
-            missing = []
 
-            for file in required_files:
-                file_path = Path(output_dir) / file
-                if not file_path.exists():
-                    missing.append(file)
-                else:
-                    size = file_path.stat().st_size / (1024 * 1024)
-                    st.text(f"  ✓ {file}: {size:.1f} MB")
+            # Check for different possible metadata file names
+            metadata_files = ["chunks_metadata.json", "chunks.json", "metadata.json"]
+            faiss_file = "faiss_index.bin"
 
-            if missing:
-                st.error(f"❌ Missing files: {', '.join(missing)}")
+            # Check FAISS index
+            faiss_path = Path(output_dir) / faiss_file
+            if not faiss_path.exists():
+                st.error(f"❌ Required file missing: {faiss_file}")
+                st.info("Files in directory:")
+                for item in Path(output_dir).iterdir():
+                    st.text(f"  - {item.name}")
+                return False
+            else:
+                size = faiss_path.stat().st_size / (1024 * 1024)
+                st.text(f"  ✓ {faiss_file}: {size:.1f} MB")
+
+            # Check for metadata file (any variant)
+            metadata_found = False
+            for metadata_file in metadata_files:
+                metadata_path = Path(output_dir) / metadata_file
+                if metadata_path.exists():
+                    size = metadata_path.stat().st_size / (1024 * 1024)
+                    st.text(f"  ✓ {metadata_file}: {size:.1f} MB")
+                    metadata_found = True
+                    break
+
+            if not metadata_found:
+                st.error(f"❌ No metadata file found. Looking for: {', '.join(metadata_files)}")
                 st.info("Files in directory:")
                 for item in Path(output_dir).iterdir():
                     st.text(f"  - {item.name}")
@@ -249,19 +265,35 @@ class DirectUploadHandler:
 
             # Verify files
             st.info("🔍 Verifying extracted files...")
-            required_files = ["faiss_index.bin", "chunks_metadata.json"]
-            missing = []
 
-            for file in required_files:
-                file_path = Path(output_dir) / file
-                if not file_path.exists():
-                    missing.append(file)
-                else:
-                    size = file_path.stat().st_size / (1024 * 1024)
-                    st.text(f"  ✓ {file}: {size:.1f} MB")
+            # Check for different possible metadata file names
+            metadata_files = ["chunks_metadata.json", "chunks.json", "metadata.json"]
+            faiss_file = "faiss_index.bin"
 
-            if missing:
-                st.error(f"❌ Missing required files: {', '.join(missing)}")
+            # Check FAISS index
+            faiss_path = Path(output_dir) / faiss_file
+            if not faiss_path.exists():
+                st.error(f"❌ Required file missing: {faiss_file}")
+                st.info("Files found in directory:")
+                for item in Path(output_dir).iterdir():
+                    st.text(f"  - {item.name}")
+                return False
+            else:
+                size = faiss_path.stat().st_size / (1024 * 1024)
+                st.text(f"  ✓ {faiss_file}: {size:.1f} MB")
+
+            # Check for metadata file (any variant)
+            metadata_found = False
+            for metadata_file in metadata_files:
+                metadata_path = Path(output_dir) / metadata_file
+                if metadata_path.exists():
+                    size = metadata_path.stat().st_size / (1024 * 1024)
+                    st.text(f"  ✓ {metadata_file}: {size:.1f} MB")
+                    metadata_found = True
+                    break
+
+            if not metadata_found:
+                st.error(f"❌ No metadata file found. Looking for: {', '.join(metadata_files)}")
                 st.info("Files found in directory:")
                 for item in Path(output_dir).iterdir():
                     st.text(f"  - {item.name}")
@@ -350,7 +382,9 @@ GEMINI_API_KEY = "your_gemini_api_key_here"
         st.info("""
         **تعليمات:**
         1. قم بضغط مجلد `legal_index1` إلى ملف ZIP
-        2. تأكد من أن الملف يحتوي على `faiss_index.bin` و `chunks_metadata.json`
+        2. تأكد من أن الملف يحتوي على:
+           - `faiss_index.bin` (مطلوب)
+           - `chunks.json` أو `chunks_metadata.json` أو `metadata.json` (مطلوب)
         3. ارفع الملف أدناه (الحد الأقصى: 500 ميجابايت)
         """)
 
@@ -386,8 +420,8 @@ GEMINI_API_KEY = "your_gemini_api_key_here"
 
         st.markdown("""
         **الملفات المطلوبة في legal_index1:**
-        - `faiss_index.bin` - قاعدة بيانات البحث المتجهي
-        - `chunks_metadata.json` - معلومات النصوص القانونية
+        - `faiss_index.bin` - قاعدة بيانات البحث المتجهي (مطلوب)
+        - `chunks.json` أو `chunks_metadata.json` - معلومات النصوص القانونية (مطلوب)
         - ملفات إضافية حسب إعداد RAG الخاص بك
         
         **حجم الملف النموذجي:**
@@ -415,7 +449,7 @@ GEMINI_API_KEY = "your_gemini_api_key_here"
             **مشاكل شائعة:**
             
             1. **"Missing required files"**
-               - تأكد من وجود `faiss_index.bin` و `chunks_metadata.json`
+               - تأكد من وجود `faiss_index.bin` و أحد ملفات البيانات: `chunks.json` أو `chunks_metadata.json`
                - تحقق من بنية المجلد داخل الـ ZIP
             
             2. **"Download failed from Google Drive"**
