@@ -641,8 +641,7 @@ Provide ONLY the English translation, no explanations."""
 استخدم تنسيق واضح مع عناوين. كن موجزاً ودقيقاً.
 
 💡 تنويه: معلومات قانونية عامة للإطلاع فقط.
-arabic should be written from right to left it format every thing/
-also provide english translation 
+
 """
 
         return prompt
