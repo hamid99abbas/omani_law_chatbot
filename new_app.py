@@ -1,9 +1,9 @@
 """
 Complete Integration: Arabic Legal RAG + Gemini Flash 2.0 + Streamlit
-With BOTH Google Drive download AND direct upload options
+With automatic Google Drive download for legal_index
 
 Installation:
-pip install streamlit google-generativeai gdown requests
+pip install streamlit google-generativeai gdown
 
 Run:
 streamlit run app.py
@@ -20,7 +20,6 @@ import gdown
 import zipfile
 import os
 import shutil
-import requests
 
 # Import your RAG system
 try:
@@ -38,433 +37,107 @@ class GoogleDriveDownloader:
     """Download and extract legal_index from Google Drive"""
 
     @staticmethod
-    def download_large_file_from_gdrive(file_id: str, destination: str) -> bool:
-        """Download large file from Google Drive with proper handling"""
+    def get_folder_id_from_url(url: str) -> str:
+        """Extract folder ID from Google Drive URL"""
+        if "folders/" in url:
+            return url.split("folders/")[1].split("?")[0]
+        return url
 
-        URL = "https://docs.google.com/uc?export=download"
+    @staticmethod
+    def download_folder(folder_url: str, output_dir: str = "legal_index1") -> bool:
+        """
+        Download entire folder from Google Drive
 
-        session = requests.Session()
+        Since gdown doesn't support folder downloads directly, we'll use a workaround:
+        1. Create a ZIP of the folder manually in Google Drive
+        2. Share the ZIP file
+        3. Download the ZIP using gdown
 
-        response = session.get(URL, params={'id': file_id}, stream=True)
-        token = None
+        For now, this function expects a direct file link to a ZIP
+        """
+        try:
+            # Create output directory if it doesn't exist
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-        for key, value in response.cookies.items():
-            if key.startswith('download_warning'):
-                token = value
-                break
+            # You need to manually create a ZIP of your Google Drive folder
+            # and get its shareable link. Replace this with your ZIP file ID
+            # Format: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
 
-        if token:
-            params = {'id': file_id, 'confirm': token}
-            response = session.get(URL, params=params, stream=True)
+            # For multiple files, you can download them individually
+            # This is a template - you'll need to add your actual file IDs
 
-        # Save with progress
-        total_size = int(response.headers.get('content-length', 0))
-        block_size = 32768  # 32KB chunks
+            st.info("📥 Downloading legal index files from Google Drive...")
 
-        progress_bar = st.progress(0)
-        status_text = st.empty()
+            # Example: Download main index files
+            files_to_download = {
+                "faiss_index.bin": "YOUR_FAISS_INDEX_FILE_ID",
+                "chunks_metadata.json": "YOUR_METADATA_FILE_ID",
+                # Add more files as needed
+            }
 
-        with open(destination, "wb") as f:
-            downloaded = 0
-            for chunk in response.iter_content(block_size):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    if total_size > 0:
-                        progress = int((downloaded / total_size) * 100)
-                        progress_bar.progress(progress / 100)
-                        status_text.text(f"Downloaded: {downloaded // (1024*1024)}MB / {total_size // (1024*1024)}MB")
+            for filename, file_id in files_to_download.items():
+                if file_id == "YOUR_FAISS_INDEX_FILE_ID":
+                    st.warning("⚠️ Please update the Google Drive file IDs in the code")
+                    return False
 
-        progress_bar.empty()
-        status_text.empty()
-        return True
+                output_path = os.path.join(output_dir, filename)
+                url = f"https://drive.google.com/uc?id={file_id}"
+
+                st.text(f"Downloading {filename}...")
+                gdown.download(url, output_path, quiet=False)
+
+            st.success("✅ Download completed!")
+            return True
+
+        except Exception as e:
+            st.error(f"❌ Download failed: {str(e)}")
+            return False
 
     @staticmethod
     def download_zip_and_extract(zip_file_id: str, output_dir: str = "legal_index1") -> bool:
         """
         Download a ZIP file from Google Drive and extract it
-        Handles large files (200MB+) properly
+
+        Steps to prepare:
+        1. In Google Drive, select your legal_index1 folder
+        2. Right-click > Download (this creates a ZIP)
+        3. Upload the ZIP back to Google Drive
+        4. Right-click the ZIP > Share > Get link > Copy the file ID
+        5. Use that file ID here
         """
         try:
-            st.info("📥 Starting download from Google Drive...")
-            st.warning("⏰ Large file detected - this may take 2-5 minutes. Please wait...")
+            st.info("📥 Downloading legal index archive from Google Drive...")
 
             # Download ZIP file
             zip_path = "legal_index_temp.zip"
+            url = f"https://drive.google.com/uc?id={zip_file_id}"
 
-            # Method 1: Try gdown with confirmation bypass
-            try:
-                st.text("📦 Attempting download (Method 1: gdown)...")
-                url = f"https://drive.google.com/uc?id={zip_file_id}"
-                gdown.download(url, zip_path, quiet=False, fuzzy=True)
-
-                if not os.path.exists(zip_path) or os.path.getsize(zip_path) < 1000:
-                    raise Exception("Downloaded file is too small or doesn't exist")
-
-            except Exception as e1:
-                st.warning(f"Method 1 failed: {str(e1)[:100]}")
-                st.text("📦 Trying alternative method (Method 2: requests)...")
-
-                # Method 2: Use requests with virus scan bypass
-                downloader = GoogleDriveDownloader()
-                success = downloader.download_large_file_from_gdrive(zip_file_id, zip_path)
-
-                if not success:
-                    raise Exception("Both download methods failed")
-
-            # Check file size
-            file_size_mb = os.path.getsize(zip_path) / (1024 * 1024)
-            st.success(f"✅ Downloaded {file_size_mb:.1f} MB successfully!")
-
-            # Extract ZIP
-            st.info("📂 Extracting files...")
-            progress_bar = st.progress(0)
-
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                file_list = zip_ref.namelist()
-                total_files = len(file_list)
-                st.text(f"Found {total_files} files in archive")
-
-                # Extract all files
-                for i, file in enumerate(file_list):
-                    zip_ref.extract(file, ".")
-                    if i % 10 == 0:  # Update progress every 10 files
-                        progress_bar.progress((i + 1) / total_files)
-
-                progress_bar.progress(1.0)
-
-            progress_bar.empty()
-
-            # Handle nested folder structure
-            if Path("legal_index1/legal_index1").exists():
-                st.info("🔧 Fixing folder structure...")
-                temp_dir = "legal_index1_temp"
-                if os.path.exists(temp_dir):
-                    shutil.rmtree(temp_dir)
-                shutil.move("legal_index1/legal_index1", temp_dir)
-                shutil.rmtree("legal_index1")
-                shutil.move(temp_dir, "legal_index1")
-
-            # Clean up ZIP
-            if os.path.exists(zip_path):
-                os.remove(zip_path)
-                st.text("🧹 Cleaned up temporary files")
-
-            # Verify critical files
-            st.info("🔍 Verifying extracted files...")
-
-            # Check for different possible metadata file names
-            metadata_files = ["chunks_metadata.json", "chunks.json", "metadata.json"]
-            faiss_file = "faiss_index.bin"
-
-            # Check FAISS index
-            faiss_path = Path(output_dir) / faiss_file
-            if not faiss_path.exists():
-                st.error(f"❌ Required file missing: {faiss_file}")
-                st.info("Files in directory:")
-                for item in Path(output_dir).iterdir():
-                    st.text(f"  - {item.name}")
-                return False
-            else:
-                size = faiss_path.stat().st_size / (1024 * 1024)
-                st.text(f"  ✓ {faiss_file}: {size:.1f} MB")
-
-            # Check for metadata file (any variant)
-            metadata_found = False
-            for metadata_file in metadata_files:
-                metadata_path = Path(output_dir) / metadata_file
-                if metadata_path.exists():
-                    size = metadata_path.stat().st_size / (1024 * 1024)
-                    st.text(f"  ✓ {metadata_file}: {size:.1f} MB")
-                    metadata_found = True
-                    break
-
-            if not metadata_found:
-                st.error(f"❌ No metadata file found. Looking for: {', '.join(metadata_files)}")
-                st.info("Files in directory:")
-                for item in Path(output_dir).iterdir():
-                    st.text(f"  - {item.name}")
-                return False
-
-            st.success("✅ All files verified successfully!")
-            return True
-
-        except zipfile.BadZipFile:
-            st.error("❌ Downloaded file is corrupted or not a valid ZIP")
-            st.info("Please check your Google Drive file and try again")
-            return False
-        except Exception as e:
-            st.error(f"❌ Download/Extraction failed: {str(e)}")
-            st.exception(e)
-            return False
-
-
-# ============================================================================
-# DIRECT FILE UPLOAD HANDLER
-# ============================================================================
-
-class DirectUploadHandler:
-    """Handle direct ZIP file uploads from user's PC"""
-
-    @staticmethod
-    def upload_and_extract(uploaded_file, output_dir: str = "legal_index1") -> bool:
-        """Extract uploaded ZIP file"""
-        try:
-            # Check file size
-            file_size_mb = uploaded_file.size / (1024 * 1024)
-            st.info(f"📦 File size: {file_size_mb:.1f} MB")
-
-            if file_size_mb > 500:
-                st.error("❌ File too large! Maximum 500MB allowed.")
-                return False
-
-            st.info("⏳ Extracting files... This may take a few minutes.")
-
-            # Save uploaded file temporarily
-            temp_zip = "temp_legal_index.zip"
-            with open(temp_zip, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-
-            # Remove old directory if exists
-            if Path(output_dir).exists():
-                st.text("🗑️ Removing old index...")
-                shutil.rmtree(output_dir)
-
-            # Extract with progress
             progress_bar = st.progress(0)
             status_text = st.empty()
 
-            with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
-                file_list = zip_ref.namelist()
-                total_files = len(file_list)
-                status_text.text(f"Extracting {total_files} files...")
+            status_text.text("Downloading archive...")
+            gdown.download(url, zip_path, quiet=False)
+            progress_bar.progress(50)
 
-                for i, file in enumerate(file_list):
-                    zip_ref.extract(file, ".")
-                    if i % 10 == 0:
-                        progress_bar.progress((i + 1) / total_files)
-
-                progress_bar.progress(1.0)
-
-            progress_bar.empty()
-            status_text.empty()
-
-            # Handle nested folders
-            if Path("legal_index1/legal_index1").exists():
-                st.text("🔧 Fixing folder structure...")
-                temp_dir = "legal_index1_temp"
-                if os.path.exists(temp_dir):
-                    shutil.rmtree(temp_dir)
-                shutil.move("legal_index1/legal_index1", temp_dir)
-                shutil.rmtree("legal_index1")
-                shutil.move(temp_dir, "legal_index1")
+            # Extract ZIP
+            status_text.text("Extracting files...")
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(".")
+            progress_bar.progress(100)
 
             # Clean up
-            os.remove(temp_zip)
-            st.text("🧹 Cleaned up temporary files")
+            os.remove(zip_path)
 
-            # Verify files
-            st.info("🔍 Verifying extracted files...")
+            status_text.text("✅ Download and extraction completed!")
+            time.sleep(1)
+            status_text.empty()
+            progress_bar.empty()
 
-            # Check for different possible metadata file names
-            metadata_files = ["chunks_metadata.json", "chunks.json", "metadata.json"]
-            faiss_file = "faiss_index.bin"
-
-            # Check FAISS index
-            faiss_path = Path(output_dir) / faiss_file
-            if not faiss_path.exists():
-                st.error(f"❌ Required file missing: {faiss_file}")
-                st.info("Files found in directory:")
-                for item in Path(output_dir).iterdir():
-                    st.text(f"  - {item.name}")
-                return False
-            else:
-                size = faiss_path.stat().st_size / (1024 * 1024)
-                st.text(f"  ✓ {faiss_file}: {size:.1f} MB")
-
-            # Check for metadata file (any variant)
-            metadata_found = False
-            for metadata_file in metadata_files:
-                metadata_path = Path(output_dir) / metadata_file
-                if metadata_path.exists():
-                    size = metadata_path.stat().st_size / (1024 * 1024)
-                    st.text(f"  ✓ {metadata_file}: {size:.1f} MB")
-                    metadata_found = True
-                    break
-
-            if not metadata_found:
-                st.error(f"❌ No metadata file found. Looking for: {', '.join(metadata_files)}")
-                st.info("Files found in directory:")
-                for item in Path(output_dir).iterdir():
-                    st.text(f"  - {item.name}")
-                return False
-
-            st.success("✅ Files extracted and verified successfully!")
             return True
 
-        except zipfile.BadZipFile:
-            st.error("❌ Invalid ZIP file. Please check your file and try again.")
-            return False
         except Exception as e:
-            st.error(f"❌ Extraction failed: {str(e)}")
-            st.exception(e)
+            st.error(f"❌ Download failed: {str(e)}")
             return False
-
-
-# ============================================================================
-# INDEX SETUP PAGE
-# ============================================================================
-
-def render_index_setup_page():
-    """Show setup page with both Google Drive and Upload options"""
-
-    st.markdown("""
-    <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; color: white; margin-bottom: 20px;">
-        <h1 style="color: white; margin: 0;">⚖️ إعداد قاعدة البيانات القانونية</h1>
-        <p style="margin: 5px 0; opacity: 0.9;">اختر طريقة تحميل البيانات</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.warning("⚠️ قاعدة البيانات القانونية غير موجودة. اختر أحد الخيارات التالية:")
-
-    # Create tabs for different methods
-    tab1, tab2, tab3 = st.tabs(["☁️ تنزيل من Google Drive", "📤 رفع من الجهاز", "ℹ️ معلومات"])
-
-    # ===== TAB 1: GOOGLE DRIVE =====
-    with tab1:
-        st.markdown("### ☁️ التنزيل من Google Drive")
-
-        st.info("""
-        **الخطوات:**
-        1. ضغط مجلد `legal_index1` إلى ملف ZIP
-        2. رفع الملف إلى Google Drive
-        3. مشاركة الملف (Anyone with the link → Viewer)
-        4. نسخ معرف الملف من الرابط
-        5. إضافته في إعدادات Streamlit Secrets
-        """)
-
-        # Check if secrets configured
-        gdrive_id = st.secrets.get("GDRIVE_ZIP_ID", "")
-
-        if gdrive_id and gdrive_id != "YOUR_ZIP_FILE_ID_HERE":
-            st.success(f"✅ تم العثور على معرف Google Drive: `{gdrive_id[:20]}...`")
-
-            if st.button("🚀 بدء التنزيل من Google Drive", type="primary", use_container_width=True):
-                with st.spinner("جاري التنزيل والاستخراج..."):
-                    downloader = GoogleDriveDownloader()
-                    success = downloader.download_zip_and_extract(gdrive_id)
-
-                    if success:
-                        st.session_state.index_ready = True
-                        st.balloons()
-                        time.sleep(2)
-                        st.rerun()
-                    else:
-                        st.error("فشل التنزيل. جرب خيار الرفع المباشر.")
-        else:
-            st.warning("❌ لم يتم تكوين Google Drive")
-
-            st.code("""
-# أضف في Streamlit Cloud → Settings → Secrets:
-
-GDRIVE_ZIP_ID = "1ZhlIWykfRJr65nscaFLWq3dlGaIAym63"
-GEMINI_API_KEY = "your_gemini_api_key_here"
-            """, language="toml")
-
-            st.markdown("**للحصول على معرف الملف:**")
-            st.markdown("من الرابط: `https://drive.google.com/file/d/FILE_ID/view`")
-            st.markdown("انسخ الجزء `FILE_ID`")
-
-    # ===== TAB 2: DIRECT UPLOAD =====
-    with tab2:
-        st.markdown("### 📤 الرفع المباشر من الجهاز")
-
-        st.info("""
-        **تعليمات:**
-        1. قم بضغط مجلد `legal_index1` إلى ملف ZIP
-        2. تأكد من أن الملف يحتوي على:
-           - `faiss_index.bin` (مطلوب)
-           - `chunks.json` أو `chunks_metadata.json` أو `metadata.json` (مطلوب)
-        3. ارفع الملف أدناه (الحد الأقصى: 500 ميجابايت)
-        """)
-
-        st.warning("⚠️ **ملاحظة:** الملفات المرفوعة ستحذف عند إعادة تشغيل التطبيق. استخدم Google Drive للاستخدام الدائم.")
-
-        uploaded_file = st.file_uploader(
-            "اختر ملف legal_index1.zip",
-            type=['zip'],
-            help="ملف ZIP يحتوي على قاعدة البيانات القانونية"
-        )
-
-        if uploaded_file is not None:
-            col1, col2 = st.columns([3, 1])
-
-            with col1:
-                st.info(f"📦 الملف: {uploaded_file.name}")
-                st.info(f"📊 الحجم: {uploaded_file.size / (1024*1024):.1f} ميجابايت")
-
-            with col2:
-                if st.button("⬆️ رفع واستخراج", type="primary", use_container_width=True):
-                    handler = DirectUploadHandler()
-                    success = handler.upload_and_extract(uploaded_file)
-
-                    if success:
-                        st.session_state.index_ready = True
-                        st.balloons()
-                        time.sleep(2)
-                        st.rerun()
-
-    # ===== TAB 3: INFO =====
-    with tab3:
-        st.markdown("### ℹ️ معلومات حول قاعدة البيانات")
-
-        st.markdown("""
-        **الملفات المطلوبة في legal_index1:**
-        - `faiss_index.bin` - قاعدة بيانات البحث المتجهي (مطلوب)
-        - `chunks.json` أو `chunks_metadata.json` - معلومات النصوص القانونية (مطلوب)
-        - ملفات إضافية حسب إعداد RAG الخاص بك
-        
-        **حجم الملف النموذجي:**
-        - 200-250 ميجابايت تقريباً
-        
-        **الطرق المدعومة:**
-        
-        1. **Google Drive (موصى به):**
-           - ✅ دائم - لا يحذف عند إعادة التشغيل
-           - ✅ أسرع للمستخدمين المتعددين
-           - ✅ تنزيل تلقائي عند البدء
-           - ❌ يتطلب إعداد أولي
-        
-        2. **الرفع المباشر:**
-           - ✅ سهل وسريع
-           - ✅ لا يتطلب Google Drive
-           - ❌ يحذف عند إعادة تشغيل التطبيق
-           - ❌ يجب إعادة الرفع في كل مرة
-        
-        **التوصية:** استخدم Google Drive للإنتاج، والرفع المباشر للاختبار.
-        """)
-
-        with st.expander("🔧 استكشاف الأخطاء"):
-            st.markdown("""
-            **مشاكل شائعة:**
-            
-            1. **"Missing required files"**
-               - تأكد من وجود `faiss_index.bin` و أحد ملفات البيانات: `chunks.json` أو `chunks_metadata.json`
-               - تحقق من بنية المجلد داخل الـ ZIP
-            
-            2. **"Download failed from Google Drive"**
-               - تحقق من أن الملف مشارك بشكل عام (Anyone with link)
-               - تأكد من صحة معرف الملف
-               - جرب الرفع المباشر كبديل
-            
-            3. **"File too large"**
-               - الحد الأقصى: 500 ميجابايت للرفع المباشر
-               - استخدم Google Drive للملفات الأكبر
-            
-            4. **"Bad ZIP file"**
-               - أعد إنشاء ملف ZIP
-               - تأكد من عدم تلف الملف أثناء الرفع
-            """)
 
 
 # ============================================================================
@@ -555,7 +228,7 @@ st.markdown("""
 
 
 # ============================================================================
-# GEMINI ASSISTANT
+# GEMINI ASSISTANT (keeping your original code)
 # ============================================================================
 
 class GeminiLegalAssistant:
@@ -641,8 +314,7 @@ Provide ONLY the English translation, no explanations."""
 استخدم تنسيق واضح مع عناوين. كن موجزاً ودقيقاً.
 
 💡 تنويه: معلومات قانونية عامة للإطلاع فقط.
-
-"""
+provide english translation no explanation at the end"""
 
         return prompt
 
@@ -732,19 +404,64 @@ Provide ONLY the English translation, no explanations."""
 
 
 # ============================================================================
-# RAG SYSTEM LOADER
+# RAG SYSTEM LOADER WITH AUTO-DOWNLOAD
 # ============================================================================
 
 @st.cache_resource
 def load_rag_system():
-    """Load RAG system"""
+    """Load RAG system with automatic download if needed"""
     try:
         index_path = Path("legal_index1")
 
-        if not (index_path / "faiss_index.bin").exists():
-            return None, False
+        # Detailed status check
+        st.info(f"🔍 Checking for legal index at: {index_path.absolute()}")
 
+        # Check if index exists locally
+        if not (index_path / "faiss_index.bin").exists():
+            st.warning("⚠️ Legal index not found locally. Attempting to download from Google Drive...")
+
+            # IMPORTANT: Replace this with your actual Google Drive file ID
+            ZIP_FILE_ID = st.secrets.get("GDRIVE_ZIP_ID", "YOUR_ZIP_FILE_ID_HERE")
+
+            if ZIP_FILE_ID == "YOUR_ZIP_FILE_ID_HERE":
+                st.error("""
+                ❌ **Google Drive Setup Required**
+                
+                **Option 1: Add to Streamlit Secrets (Recommended)**
+                1. Go to Streamlit Cloud → App Settings → Secrets
+                2. Add: `GDRIVE_ZIP_ID = "your_file_id_here"`
+                
+                **Option 2: Manual Upload**
+                Upload the `legal_index1` folder directly to your GitHub repo
+                
+                **To get Google Drive File ID:**
+                1. Compress `legal_index1` folder → ZIP
+                2. Upload ZIP to Google Drive
+                3. Share → Anyone with link
+                4. Copy the ID from: `https://drive.google.com/file/d/FILE_ID/view`
+                """)
+
+                # Check if files exist in current directory
+                st.info("📂 Files in current directory:")
+                for item in Path(".").iterdir():
+                    st.text(f"  - {item.name}")
+
+                return None, False
+
+            # Download and extract
+            st.info(f"📥 Starting download with ID: {ZIP_FILE_ID[:20]}...")
+            downloader = GoogleDriveDownloader()
+            success = downloader.download_zip_and_extract(ZIP_FILE_ID, "legal_index1")
+
+            if not success:
+                st.error("❌ Failed to download from Google Drive")
+                return None, False
+        else:
+            st.success(f"✅ Found legal index locally at {index_path}")
+
+        # Load the RAG system
         with st.spinner("⏳ جاري تحميل قاعدة البيانات القانونية..."):
+            st.info("🔧 Initializing RAG system...")
             rag = ArabicLegalRAG(
                 chunk_size=1200,
                 overlap=150,
@@ -752,19 +469,24 @@ def load_rag_system():
                 use_metadata_context=True
             )
 
+            st.info(f"📖 Loading knowledge base from {index_path}...")
             rag.load_knowledge_base("legal_index1")
 
-            st.success(f"✅ تم تحميل {len(rag.embedding_system.chunks)} جزء قانوني")
+            st.success(f"✅ Loaded {len(rag.embedding_system.chunks)} chunks")
             return rag, True
 
+    except ImportError as e:
+        st.error(f"❌ Import Error: {str(e)}")
+        st.error("Make sure `allin_one.py` (your RAG system) is in the same directory")
+        return None, False
     except Exception as e:
         st.error(f"❌ فشل تحميل النظام: {str(e)}")
-        st.exception(e)
+        st.exception(e)  # Show full traceback
         return None, False
 
 
 # ============================================================================
-# UI COMPONENTS
+# UI COMPONENTS (keeping your original functions)
 # ============================================================================
 
 def render_sidebar():
@@ -792,7 +514,7 @@ def render_sidebar():
             if use_gemini:
                 show_translation = st.checkbox(
                     "🌐 إضافة ترجمة إنجليزية",
-                    value=True,  # Changed to True - enabled by default
+                    value=False,
                     help="ترجمة الإجابة إلى الإنجليزية (يستهلك حصة إضافية)"
                 )
 
@@ -883,21 +605,6 @@ def render_sidebar():
         with col2:
             if st.button("📊 إحصائيات", use_container_width=True):
                 st.session_state.show_stats = not st.session_state.get('show_stats', False)
-
-        st.markdown("---")
-
-        # Add reload index button
-        if st.button("🔄 تحديث قاعدة البيانات", use_container_width=True, help="إعادة تحميل أو استبدال الملفات القانونية"):
-            # Clear cached RAG system
-            if 'rag_system' in st.session_state:
-                del st.session_state['rag_system']
-            # Reset index ready flag
-            st.session_state.index_ready = False
-            # Clear cache
-            st.cache_resource.clear()
-            st.success("✅ سيتم إعادة التوجيه لصفحة التحميل...")
-            time.sleep(1)
-            st.rerun()
 
         st.markdown("---")
 
@@ -999,13 +706,19 @@ def render_stats(rag_system):
 
 
 # ============================================================================
-# MAIN APPLICATION
+# MAIN APPLICATION (keeping the rest of your code)
 # ============================================================================
 
 def main():
     """Main application"""
 
-    # Initialize session state
+    st.markdown("""
+    <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; color: white; margin-bottom: 20px;">
+        <h1 style="color: white; margin: 0;">⚖️ المساعد القانوني الذكي</h1>
+        <p style="margin: 5px 0; opacity: 0.9;">مدعوم بتقنية RAG وذكاء Gemini Flash 2.0</p>
+    </div>
+    """, unsafe_allow_html=True)
+
     if 'messages' not in st.session_state:
         st.session_state.messages = []
 
@@ -1019,35 +732,15 @@ def main():
             'filter_law': None
         }
 
-    # Check if index exists
-    index_path = Path("legal_index1")
-    index_exists = (index_path / "faiss_index.bin").exists()
-
-    # If index doesn't exist, show setup page
-    if not index_exists and not st.session_state.get('index_ready', False):
-        render_index_setup_page()
-        return
-
-    # Header
-    st.markdown("""
-    <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; color: white; margin-bottom: 20px;">
-        <h1 style="color: white; margin: 0;">⚖️ المساعد القانوني الذكي</h1>
-        <p style="margin: 5px 0; opacity: 0.9;">مدعوم بتقنية RAG وذكاء Gemini Flash 2.0</p>
-    </div>
-    """, unsafe_allow_html=True)
-
     render_sidebar()
 
-    # Load RAG system
     if 'rag_system' not in st.session_state:
         rag, success = load_rag_system()
         if success:
             st.session_state.rag_system = rag
+            st.success("✅ تم تحميل قاعدة البيانات القانونية بنجاح!")
         else:
             st.error("❌ فشل تحميل قاعدة البيانات")
-            if st.button("↩️ العودة للإعداد"):
-                st.session_state.index_ready = False
-                st.rerun()
             st.stop()
 
     render_stats(st.session_state.rag_system)
@@ -1188,6 +881,9 @@ def main():
                 except Exception as e:
                     st.error(f"❌ حدث خطأ: {str(e)}")
                     st.exception(e)
+
+    # Rest of your chat interface code remains the same...
+    # (keeping all the chat history, message handling, etc.)
 
     st.markdown("---")
     st.markdown("""
