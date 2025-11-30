@@ -572,12 +572,12 @@ class GeminiLegalAssistant:
         ]
 
         self.model = genai.GenerativeModel(
-            'gemini-2.0-flash-exp',
+            'gemini-2.0-flash',
             safety_settings=self.safety_settings
         )
 
         self.translation_model = genai.GenerativeModel(
-            'gemini-2.0-flash-exp',
+            'gemini-2.0-flash',
             safety_settings=self.safety_settings
         )
 
