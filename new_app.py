@@ -641,11 +641,9 @@ Provide ONLY the English translation, no explanations."""
 استخدم تنسيق واضح مع عناوين. كن موجزاً ودقيقاً.
 
 💡 تنويه: معلومات قانونية عامة للإطلاع فقط.
-proivde english translation too"""
-
-
-
-
+arabic should be written from right to left it format every thing/
+also provide english translation 
+"""
 
         return prompt
 
@@ -795,7 +793,7 @@ def render_sidebar():
             if use_gemini:
                 show_translation = st.checkbox(
                     "🌐 إضافة ترجمة إنجليزية",
-                    value=False,
+                    value=True,  # Changed to True - enabled by default
                     help="ترجمة الإجابة إلى الإنجليزية (يستهلك حصة إضافية)"
                 )
 
@@ -886,6 +884,21 @@ def render_sidebar():
         with col2:
             if st.button("📊 إحصائيات", use_container_width=True):
                 st.session_state.show_stats = not st.session_state.get('show_stats', False)
+
+        st.markdown("---")
+
+        # Add reload index button
+        if st.button("🔄 تحديث قاعدة البيانات", use_container_width=True, help="إعادة تحميل أو استبدال الملفات القانونية"):
+            # Clear cached RAG system
+            if 'rag_system' in st.session_state:
+                del st.session_state['rag_system']
+            # Reset index ready flag
+            st.session_state.index_ready = False
+            # Clear cache
+            st.cache_resource.clear()
+            st.success("✅ سيتم إعادة التوجيه لصفحة التحميل...")
+            time.sleep(1)
+            st.rerun()
 
         st.markdown("---")
 
