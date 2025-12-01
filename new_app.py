@@ -478,12 +478,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom RTL CSS with Smart Language Detection
+# Custom RTL CSS
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
     
-    /* Force entire page RTL by default (Arabic) */
+    /* Force entire page RTL */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
         direction: rtl !important;
         text-align: right !important;
@@ -530,31 +530,7 @@ st.markdown("""
         direction: rtl !important;
     }
     
-    /* ========================================
-       SPECIAL: English Translation Section LTR
-       ======================================== */
-    
-    /* Make English translation sections LTR */
-    h3:has-text("English Translation"),
-    h3:contains("English Translation") {
-        direction: ltr !important;
-        text-align: left !important;
-    }
-    
-    /* Target the English translation content specifically */
-    .stChatMessage h3:nth-of-type(2) ~ * {
-        direction: ltr !important;
-        text-align: left !important;
-    }
-    
-    /* Arabic sections stay RTL */
-    h3:has-text("الإجابة بالعربية"),
-    h3:contains("الإجابة بالعربية") {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    /* Fix for RTL bullet points and lists (Arabic) */
+    /* Fix for RTL bullet points and lists */
     .stMarkdown, .stMarkdown * {
         direction: rtl !important;
         text-align: right !important;
@@ -642,7 +618,7 @@ st.markdown("""
         color: #667eea;
     }
     
-    /* Paragraphs RTL by default */
+    /* Paragraphs RTL */
     p {
         direction: rtl !important;
         text-align: right !important;
@@ -813,7 +789,7 @@ st.markdown("""
         text-align: right !important;
     }
     
-    /* Code blocks stay LTR */
+    /* Code blocks RTL */
     .stCodeBlock {
         direction: ltr !important;
         text-align: left !important;
@@ -833,40 +809,6 @@ st.markdown("""
     .stAlert {
         direction: rtl !important;
         text-align: right !important;
-    }
-    
-    /* ========================================
-       ENGLISH TRANSLATION SECTION - Force LTR
-       ======================================== */
-    
-    /* Create a wrapper class for English content */
-    .english-content {
-        direction: ltr !important;
-        text-align: left !important;
-        font-family: 'Arial', sans-serif !important;
-    }
-    
-    .english-content * {
-        direction: ltr !important;
-        text-align: left !important;
-    }
-    
-    .english-content ul,
-    .english-content ol {
-        padding-left: 2rem !important;
-        padding-right: 0 !important;
-        list-style-position: inside !important;
-    }
-    
-    .english-content li {
-        text-align: left !important;
-    }
-    
-    /* Flag emojis should not rotate */
-    .stChatMessage h3 {
-        display: flex;
-        align-items: center;
-        gap: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -1377,8 +1319,8 @@ def main():
 
             if message["role"] == "assistant" and message.get("translation"):
                 st.markdown("---")
-                st.markdown('<div class="english-section"><h3>🇬🇧 English Translation</h3></div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="english-content">{message["translation"]}</div>', unsafe_allow_html=True)
+                st.markdown("### 🇬🇧 English Translation")
+                st.markdown(message["translation"])
 
             if message["role"] == "assistant" and "sources" in message:
                 if message.get("rag_only"):
@@ -1488,9 +1430,8 @@ def main():
 
                     if show_translation and english_translation:
                         st.markdown("---")
-                        st.markdown('<div class="english-section"><h3>🇬🇧 English Translation</h3></div>', unsafe_allow_html=True)
-                        # Wrap English translation in LTR container
-                        st.markdown(f'<div class="english-content">{english_translation}</div>', unsafe_allow_html=True)
+                        st.markdown("### 🇬🇧 English Translation")
+                        st.markdown(english_translation)
 
                     with st.expander("📚 عرض المصادر القانونية"):
                         render_sources(results)
