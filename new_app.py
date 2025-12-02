@@ -1513,7 +1513,7 @@ def main():
         <p style="font-size: 12px;">💡 ملاحظة: هذا النظام للمساعدة فقط وليس بديلاً عن الاستشارة القانونية المهنية</p>
     </div>
     """, unsafe_allow_html=True)
-
+#jgbndfkljgbndfkljbndklnghkldfnghkldnfklgnfdklgnfdklgndfklgnkldfngkldfngklnfdklgndfklgndfkln
 
 if __name__ == "__main__":
     main()
