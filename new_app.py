@@ -478,257 +478,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom RTL CSS with Smart Language Detection
+# Custom RTL CSS
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
     
-    /* Force entire page RTL by default (Arabic) */
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
     * {
         font-family: 'Cairo', sans-serif;
+    }
+    
+    .main {
+        direction: rtl;
+        text-align: right;
+    }
+    
+    .stTextInput > div > div > input {
+        text-align: right;
         direction: rtl;
     }
     
-    .main, .block-container {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    /* Sidebar RTL */
-    [data-testid="stSidebar"] {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    [data-testid="stSidebar"] > div {
-        direction: rtl !important;
-    }
-    
-    /* Input fields RTL */
-    .stTextInput > div > div > input {
-        text-align: right !important;
-        direction: rtl !important;
-    }
-    
     .stTextArea > div > div > textarea {
-        text-align: right !important;
-        direction: rtl !important;
+        text-align: right;
+        direction: rtl;
     }
     
-    /* Chat input RTL */
-    [data-testid="stChatInput"] {
-        direction: rtl !important;
-    }
-    
-    [data-testid="stChatInput"] textarea {
-        text-align: right !important;
-        direction: rtl !important;
-    }
-    
-    /* ========================================
-       SPECIAL: English Translation Section LTR
-       ======================================== */
-    
-    /* Make English translation sections LTR */
-    h3:has-text("English Translation"),
-    h3:contains("English Translation") {
-        direction: ltr !important;
-        text-align: left !important;
-    }
-    
-    /* Target the English translation content specifically */
-    .stChatMessage h3:nth-of-type(2) ~ * {
-        direction: ltr !important;
-        text-align: left !important;
-    }
-    
-    /* Arabic sections stay RTL */
-    h3:has-text("الإجابة بالعربية"),
-    h3:contains("الإجابة بالعربية") {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    /* Fix for RTL bullet points and lists (Arabic) */
-    .stMarkdown, .stMarkdown * {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    .stMarkdown ul {
-        direction: rtl !important;
-        text-align: right !important;
-        padding-right: 2rem !important;
-        padding-left: 0 !important;
-        list-style-position: inside !important;
-    }
-    
-    .stMarkdown ol {
-        direction: rtl !important;
-        text-align: right !important;
-        padding-right: 2rem !important;
-        padding-left: 0 !important;
-        list-style-position: inside !important;
-    }
-    
-    .stMarkdown li {
-        direction: rtl !important;
-        text-align: right !important;
-        margin-right: 0 !important;
-        margin-left: 0 !important;
-    }
-    
-    /* Fix chat message content for RTL */
-    .stChatMessage {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    .stChatMessage * {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    .stChatMessage ul,
-    .stChatMessage ol {
-        direction: rtl !important;
-        text-align: right !important;
-        padding-right: 2rem !important;
-        padding-left: 0 !important;
-        list-style-position: inside !important;
-    }
-    
-    .stChatMessage li {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    /* Fix for numbered lists in chat */
-    .stChatMessage ol li::marker {
-        unicode-bidi: isolate;
-    }
-    
-    /* Additional RTL fixes */
-    [data-testid="stChatMessageContent"] {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    [data-testid="stChatMessageContent"] * {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    [data-testid="stChatMessageContent"] ul,
-    [data-testid="stChatMessageContent"] ol {
-        padding-right: 2rem !important;
-        padding-left: 0 !important;
-        list-style-position: inside !important;
-    }
-    
-    [data-testid="stChatMessageContent"] li {
-        text-align: right !important;
-    }
-    
-    /* Headers RTL */
-    h1, h2, h3, h4, h5, h6 {
-        direction: rtl !important;
-        text-align: right !important;
-        color: #667eea;
-    }
-    
-    /* Paragraphs RTL by default */
-    p {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    /* Buttons RTL */
-    .stButton > button {
-        width: 100%;
-        border-radius: 10px;
-        padding: 10px;
-        font-weight: 600;
-        direction: rtl !important;
-        text-align: center !important;
-    }
-    
-    /* Tabs RTL */
-    .stTabs {
-        direction: rtl !important;
-    }
-    
-    [data-baseweb="tab-list"] {
-        direction: rtl !important;
-        justify-content: flex-start !important;
-    }
-    
-    [data-baseweb="tab"] {
-        direction: rtl !important;
-    }
-    
-    /* Expander RTL */
-    .streamlit-expanderHeader {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    .streamlit-expanderContent {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    .streamlit-expanderContent ul,
-    .streamlit-expanderContent ol {
-        padding-right: 2rem !important;
-        padding-left: 0 !important;
-    }
-    
-    /* Fix for all markdown content */
-    div[data-testid="stMarkdownContainer"] {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    div[data-testid="stMarkdownContainer"] * {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    div[data-testid="stMarkdownContainer"] ul,
-    div[data-testid="stMarkdownContainer"] ol {
-        padding-right: 2rem !important;
-        padding-left: 0 !important;
-        text-align: right !important;
-        list-style-position: inside !important;
-    }
-    
-    div[data-testid="stMarkdownContainer"] li {
-        text-align: right !important;
-    }
-    
-    /* Columns RTL */
-    [data-testid="column"] {
-        direction: rtl !important;
-    }
-    
-    /* Metrics RTL */
-    [data-testid="stMetric"] {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    [data-testid="stMetricLabel"] {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    /* Legal source boxes */
     .legal-source {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 20px;
@@ -736,13 +509,6 @@ st.markdown("""
         margin: 15px 0;
         color: white;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    .legal-source * {
-        direction: rtl !important;
-        text-align: right !important;
     }
     
     .legal-text {
@@ -751,8 +517,6 @@ st.markdown("""
         border-radius: 10px;
         margin-top: 10px;
         backdrop-filter: blur(10px);
-        direction: rtl !important;
-        text-align: right !important;
     }
     
     .score-badge {
@@ -774,99 +538,17 @@ st.markdown("""
         border-radius: 15px;
         color: white;
         margin: 10px 0;
-        direction: rtl !important;
-        text-align: right !important;
     }
     
-    /* File uploader RTL */
-    [data-testid="stFileUploader"] {
-        direction: rtl !important;
+    .stButton > button {
+        width: 100%;
+        border-radius: 10px;
+        padding: 10px;
+        font-weight: 600;
     }
     
-    /* Selectbox RTL */
-    .stSelectbox {
-        direction: rtl !important;
-    }
-    
-    .stSelectbox label {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    /* Slider RTL */
-    .stSlider {
-        direction: rtl !important;
-    }
-    
-    .stSlider label {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    /* Checkbox RTL */
-    .stCheckbox {
-        direction: rtl !important;
-    }
-    
-    .stCheckbox label {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    /* Code blocks stay LTR */
-    .stCodeBlock {
-        direction: ltr !important;
-        text-align: left !important;
-    }
-    
-    /* Progress bar RTL */
-    .stProgress {
-        direction: rtl !important;
-    }
-    
-    /* Spinner RTL */
-    .stSpinner {
-        direction: rtl !important;
-    }
-    
-    /* Alert boxes RTL */
-    .stAlert {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-    
-    /* ========================================
-       ENGLISH TRANSLATION SECTION - Force LTR
-       ======================================== */
-    
-    /* Create a wrapper class for English content */
-    .english-content {
-        direction: ltr !important;
-        text-align: left !important;
-        font-family: 'Arial', sans-serif !important;
-    }
-    
-    .english-content * {
-        direction: ltr !important;
-        text-align: left !important;
-    }
-    
-    .english-content ul,
-    .english-content ol {
-        padding-left: 2rem !important;
-        padding-right: 0 !important;
-        list-style-position: inside !important;
-    }
-    
-    .english-content li {
-        text-align: left !important;
-    }
-    
-    /* Flag emojis should not rotate */
-    .stChatMessage h3 {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+    h1, h2, h3 {
+        color: #667eea;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -1377,8 +1059,8 @@ def main():
 
             if message["role"] == "assistant" and message.get("translation"):
                 st.markdown("---")
-                st.markdown('<div class="english-section"><h3>🇬🇧 English Translation</h3></div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="english-content">{message["translation"]}</div>', unsafe_allow_html=True)
+                st.markdown("### 🇬🇧 English Translation")
+                st.markdown(message["translation"])
 
             if message["role"] == "assistant" and "sources" in message:
                 if message.get("rag_only"):
@@ -1488,9 +1170,8 @@ def main():
 
                     if show_translation and english_translation:
                         st.markdown("---")
-                        st.markdown('<div class="english-section"><h3>🇬🇧 English Translation</h3></div>', unsafe_allow_html=True)
-                        # Wrap English translation in LTR container
-                        st.markdown(f'<div class="english-content">{english_translation}</div>', unsafe_allow_html=True)
+                        st.markdown("### 🇬🇧 English Translation")
+                        st.markdown(english_translation)
 
                     with st.expander("📚 عرض المصادر القانونية"):
                         render_sources(results)
@@ -1513,7 +1194,7 @@ def main():
         <p style="font-size: 12px;">💡 ملاحظة: هذا النظام للمساعدة فقط وليس بديلاً عن الاستشارة القانونية المهنية</p>
     </div>
     """, unsafe_allow_html=True)
-#jgbndfkljgbndfkljbndklnghkldfnghkldnfklgnfdklgnfdklgndfklgnkldfngkldfngklnfdklgndfklgndfkln
+
 
 if __name__ == "__main__":
     main()
