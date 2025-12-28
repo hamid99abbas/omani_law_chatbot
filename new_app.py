@@ -32,10 +32,10 @@ st.set_page_config(
 )
 
 # API Configuration
-API_BASE_URL = "http://46.62.204.148:8000"
+API_BASE_URL = st.secrets.get("API_BASE_URL", "")
 
 # Firebase Web API Key
-FIREBASE_WEB_API_KEY = "AIzaSyBELH8vSPixUpr16GX8Shuw9OZXniXfJlM"
+FIREBASE_WEB_API_KEY = st.secrets.get("FIREBASE_WEB_API_KEY", "")
 
 # ============================================================================
 # CUSTOM CSS - RTL SUPPORT
