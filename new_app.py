@@ -1,547 +1,614 @@
 """
-Complete Streamlit Frontend for Arabic Legal Assistant
-With Firebase Authentication and API Integration
-
-Installation:
-pip install streamlit requests python-firebase
-
-Run:
-streamlit run app.py
-
-Test User:
-Email: hamidatabbas@gmail.com
-Password: 92528240
+محامي عُمان الذكي - Arabic Legal Chatbot
+Streamlit Interface for Omani Legal RAG System
 """
 
 import streamlit as st
 import requests
-import json
-from typing import Optional, List, Dict
 from datetime import datetime
-import time
+from typing import Optional, Dict, Any
+import json
 
 # ============================================================================
-# CONFIGURATION
+# Configuration
 # ============================================================================
 
-st.set_page_config(
-    page_title="⚖️ المساعد القانوني الذكي",
-    page_icon="⚖️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+API_BASE_URL = "http://46.62.204.148:8000"
 
-# API Configuration
-API_BASE_URL = st.secrets.get("API_BASE_URL", "")
-
-# Firebase Web API Key
-FIREBASE_WEB_API_KEY = st.secrets.get("FIREBASE_WEB_API_KEY", "")
-
-# ============================================================================
-# CUSTOM CSS - RTL SUPPORT
-# ============================================================================
-
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+# Arabic RTL CSS
+ARABIC_CSS = """
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap');
 
     * {
-        font-family: 'Cairo', sans-serif;
+        font-family: 'Cairo', sans-serif !important;
     }
 
+    /* RTL Support */
+    .stApp {
+        direction: rtl;
+        text-align: right;
+    }
+
+    /* Main container */
     .main {
-        direction: rtl;
-        text-align: right;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     }
 
-    .stTextInput > div > div > input {
-        text-align: right;
-        direction: rtl;
-    }
-
-    .stTextArea > div > div > textarea {
-        text-align: right;
-        direction: rtl;
-    }
-
-    /* Chat message styles */
-    .user-message {
+    /* Header styling */
+    .header-container {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 15px 20px;
-        border-radius: 15px;
-        margin: 10px 0;
-        color: white;
-        text-align: right;
-        direction: rtl;
-    }
-
-    .assistant-message {
-        background: #f0f2f6;
-        padding: 15px 20px;
-        border-radius: 15px;
-        margin: 10px 0;
-        text-align: right;
-        direction: rtl;
-        border-right: 4px solid #667eea;
-    }
-
-    .source-card {
-        background: white;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        border: 1px solid #e0e0e0;
-        text-align: right;
-        direction: rtl;
-    }
-
-    .score-badge {
-        display: inline-block;
-        padding: 5px 12px;
-        border-radius: 15px;
-        font-weight: bold;
-        font-size: 12px;
-        margin: 5px;
-    }
-
-    .score-excellent { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-    .score-good { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
-    .score-fair { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; }
-
-    .header-gradient {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 30px;
+        padding: 2rem;
         border-radius: 15px;
         text-align: center;
         color: white;
-        margin-bottom: 20px;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     }
 
-    .stButton > button {
+    .header-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .header-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.9;
+    }
+
+    /* Chat messages */
+    .user-message {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 15px 15px 5px 15px;
+        margin: 1rem 0;
+        margin-left: 20%;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .bot-message {
+        background: white;
+        color: #2d3748;
+        padding: 1.5rem;
+        border-radius: 15px 15px 15px 5px;
+        margin: 1rem 0;
+        margin-right: 10%;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        border-right: 4px solid #667eea;
+    }
+
+    .error-message {
+        background: #fff5f5;
+        color: #c53030;
+        padding: 1rem;
         border-radius: 10px;
-        padding: 10px 20px;
+        border-right: 4px solid #fc8181;
+        margin: 1rem 0;
+    }
+
+    .warning-message {
+        background: #fffaf0;
+        color: #c05621;
+        padding: 1rem;
+        border-radius: 10px;
+        border-right: 4px solid #f6ad55;
+        margin: 1rem 0;
+    }
+
+    /* Source cards */
+    .source-card {
+        background: #f7fafc;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 0.5rem 0;
+        border-right: 3px solid #667eea;
+        transition: all 0.3s ease;
+    }
+
+    .source-card:hover {
+        transform: translateX(-5px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+
+    .source-header {
+        font-weight: 600;
+        color: #667eea;
+        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+    }
+
+    .source-text {
+        color: #4a5568;
+        line-height: 1.8;
+        margin: 0.5rem 0;
+    }
+
+    .source-meta {
+        color: #718096;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    /* Stats badges */
+    .stat-badge {
+        display: inline-block;
+        background: #667eea;
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        margin: 0.2rem;
+        font-size: 0.9rem;
+    }
+
+    /* Direct answer box */
+    .direct-answer {
+        background: linear-gradient(135deg, #f6f8fb 0%, #e9ecef 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        border-right: 5px solid #48bb78;
+        margin: 1rem 0;
+        box-shadow: 0 4px 15px rgba(72, 187, 120, 0.2);
+    }
+
+    .direct-answer-title {
+        color: #48bb78;
+        font-weight: 700;
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+    }
+
+    .direct-answer-text {
+        color: #2d3748;
+        font-size: 1.1rem;
+        line-height: 1.8;
+    }
+
+    /* Sidebar styling */
+    .css-1d391kg {
+        background: white;
+        border-left: 2px solid #e2e8f0;
+    }
+
+    /* Button styling */
+    .stButton>button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    /* Input field */
+    .stTextInput>div>div>input {
+        direction: rtl;
+        text-align: right;
+        border-radius: 10px;
+        border: 2px solid #e2e8f0;
+        padding: 0.75rem;
+    }
+
+    .stTextInput>div>div>input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    /* Expander */
+    .streamlit-expanderHeader {
+        direction: rtl;
+        text-align: right;
+        background: #f7fafc;
+        border-radius: 10px;
         font-weight: 600;
     }
 
-    h1, h2, h3 {
-        color: #667eea;
+    /* Info box */
+    .info-box {
+        background: #ebf8ff;
+        color: #2c5282;
+        padding: 1rem;
+        border-radius: 10px;
+        border-right: 4px solid #4299e1;
+        margin: 1rem 0;
     }
-    </style>
-""", unsafe_allow_html=True)
+
+    /* Loading animation */
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .loading {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+</style>
+"""
 
 
 # ============================================================================
-# FIREBASE AUTHENTICATION
+# API Functions
 # ============================================================================
 
-class FirebaseAuth:
-    """Handle Firebase authentication"""
+def check_api_health() -> Dict[str, Any]:
+    """Check if API is healthy"""
+    try:
+        response = requests.get(f"{API_BASE_URL}/health", timeout=5)
+        if response.status_code == 200:
+            return response.json()
+        return None
+    except Exception as e:
+        st.error(f"خطأ في الاتصال بالخادم: {str(e)}")
+        return None
 
-    @staticmethod
-    def sign_in(email: str, password: str) -> Optional[Dict]:
-        """Sign in with email and password"""
-        auth_url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_API_KEY}"
 
+def query_legal_api(question: str, use_gemini: bool = True) -> Optional[Dict[str, Any]]:
+    """Query the legal API"""
+    try:
         payload = {
-            "email": email,
-            "password": password,
-            "returnSecureToken": True
+            "question": question,
+            "k_laws": 3,
+            "k_procedures": 3,
+            "k_rulings": 5,
+            "use_gemini": use_gemini
         }
 
-        try:
-            response = requests.post(auth_url, json=payload)
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    "idToken": data["idToken"],
-                    "email": data["email"],
-                    "localId": data["localId"],
-                    "expiresIn": data["expiresIn"]
-                }
-            else:
-                error_data = response.json()
-                error_message = error_data.get("error", {}).get("message", "Unknown error")
-                st.error(f"❌ فشل تسجيل الدخول: {error_message}")
-                return None
-        except Exception as e:
-            st.error(f"❌ خطأ في الاتصال: {e}")
+        response = requests.post(
+            f"{API_BASE_URL}/query",
+            json=payload,
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.error(f"خطأ من الخادم: {response.status_code}")
             return None
+
+    except requests.exceptions.Timeout:
+        st.error("انتهت مهلة الاتصال. يرجى المحاولة مرة أخرى.")
+        return None
+    except Exception as e:
+        st.error(f"خطأ: {str(e)}")
+        return None
 
 
 # ============================================================================
-# API INTERFACE
+# UI Components
 # ============================================================================
 
-class LegalAssistantAPI:
-    """Interface to Legal Assistant API"""
-
-    def __init__(self, token: str):
-        self.token = token
-        self.headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}"
-        }
-
-    def query(self, question: str, k: int = 5) -> Optional[Dict]:
-        """Send query to API"""
-        url = f"{API_BASE_URL}/api/query"
-
-        payload = {
-            "query": question,
-            "k": k,
-            "use_gemini": True,
-            "include_translation": False
-        }
-
-        try:
-            with st.spinner("🔍 جاري البحث في القوانين..."):
-                response = requests.post(url, headers=self.headers, json=payload, timeout=30)
-
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 402:
-                st.error("⚠️ رصيدك من الاستفسارات انتهى. يرجى ترقية الاشتراك.")
-                return None
-            else:
-                st.error(f"❌ خطأ: {response.status_code}")
-                return None
-
-        except requests.exceptions.Timeout:
-            st.error("⏰ انتهت مهلة الطلب. حاول مرة أخرى.")
-            return None
-        except Exception as e:
-            st.error(f"❌ خطأ: {e}")
-            return None
-
-    def get_user_profile(self) -> Optional[Dict]:
-        """Get user profile"""
-        url = f"{API_BASE_URL}/api/user/profile"
-
-        try:
-            response = requests.get(url, headers=self.headers)
-            if response.status_code == 200:
-                return response.json()
-            return None
-        except:
-            return None
-
-    def get_conversations(self) -> List[Dict]:
-        """Get conversation history"""
-        url = f"{API_BASE_URL}/api/conversations"
-
-        try:
-            response = requests.get(url, headers=self.headers)
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("conversations", [])
-            return []
-        except:
-            return []
+def render_header():
+    """Render the header"""
+    st.markdown("""
+    <div class="header-container">
+        <div class="header-title">⚖️ محامي عُمان الذكي</div>
+        <div class="header-subtitle">مساعدك القانوني الذكي - نظام استشارات قانونية متقدم</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
-# ============================================================================
-# UI COMPONENTS
-# ============================================================================
-
-def format_score(score: float) -> str:
-    """Format score with color"""
-    if score >= 0.85:
-        return f'<span class="score-badge score-excellent">🌟 ممتاز {score:.0%}</span>'
-    elif score >= 0.70:
-        return f'<span class="score-badge score-good">✅ جيد {score:.0%}</span>'
-    else:
-        return f'<span class="score-badge score-fair">📊 مقبول {score:.0%}</span>'
+def render_direct_answer(answer: str):
+    """Render direct answer"""
+    st.markdown(f"""
+    <div class="direct-answer">
+        <div class="direct-answer-title">📝 الإجابة المباشرة</div>
+        <div class="direct-answer-text">{answer}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
-def render_source(source: Dict, index: int):
-    """Render a single source"""
-    article = source.get('article', 'غير محدد')
-    ref = f"المادة {article}" if article != 'غير محدد' else "نص عام"
+def render_source_card(source: Dict[str, Any], source_type: str):
+    """Render a source card"""
+    doc_type_emoji = {
+        "law": "📜",
+        "procedure": "📋",
+        "ruling": "⚖️"
+    }
+
+    emoji = doc_type_emoji.get(source_type, "📄")
+
+    # Build header
+    header_parts = [source.get('law_type') or source.get('document', 'غير محدد')]
+
+    if source.get('article'):
+        header_parts.append(f"المادة {source['article']}")
+    if source.get('case_number'):
+        header_parts.append(f"الطعن {source['case_number']}")
+    if source.get('principle_number'):
+        header_parts.append(f"المبدأ {source['principle_number']}")
+
+    header = " - ".join(header_parts)
+
+    # Truncate text
+    text = source.get('text', '')
+    if len(text) > 400:
+        text = text[:400] + "..."
+
+    # Build metadata
+    meta_parts = []
+    if source.get('year'):
+        meta_parts.append(f"السنة: {source['year']}")
+    meta_parts.append(f"الدرجة: {source.get('score', 0):.2%}")
+
+    meta = " | ".join(meta_parts)
 
     st.markdown(f"""
     <div class="source-card">
-        <h4 style="margin: 0; color: #667eea;">📄 المصدر {index}</h4>
-        <p style="margin: 5px 0;"><strong>النوع:</strong> {source['document_type']}</p>
-        <p style="margin: 5px 0;"><strong>القانون:</strong> {source['law_type']}</p>
-        <p style="margin: 5px 0;"><strong>المرجع:</strong> {ref}</p>
-        <p style="margin: 5px 0;"><strong>المطابقة:</strong> {format_score(source['score'])}</p>
-        <hr style="margin: 10px 0;">
-        <p style="line-height: 1.8; color: #333;">
-            {source['text'][:400]}{'...' if len(source['text']) > 400 else ''}
-        </p>
+        <div class="source-header">{emoji} {header}</div>
+        <div class="source-text">{text}</div>
+        <div class="source-meta">{meta}</div>
     </div>
     """, unsafe_allow_html=True)
 
 
-def render_sidebar(api: LegalAssistantAPI):
-    """Render sidebar with user info"""
-    with st.sidebar:
-        st.markdown("# ⚙️ **لوحة التحكم**")
+def render_sources(sources: Dict[str, Any]):
+    """Render all sources"""
+    total_sources = sum(len(v) for v in sources.values())
 
-        # User profile
-        profile = api.get_user_profile()
-        if profile and profile.get('success'):
-            user_data = profile.get('user', {})
-            subscription = user_data.get('subscription', {})
+    if total_sources == 0:
+        return
 
-            st.markdown("### 👤 **معلومات الحساب**")
-            st.info(f"""
-            **📧 البريد:** {st.session_state.user_email}
-            **📦 الخطة:** {subscription.get('plan', 'غير محدد')}
-            **🎟️ الرصيد:** {subscription.get('tokensRemaining', 0)} استفسار
-            **📊 المستخدم:** {subscription.get('tokensUsed', 0)} استفسار
-            """)
-
-        st.markdown("---")
-
-        # Quick examples
-        st.markdown("### 💡 **أمثلة سريعة**")
-        examples = [
-            "ما هي العقوبات في قانون مقاطعة إسرائيل؟",
-            "ما شروط فصل العامل؟",
-            "حقوق ذوي الإعاقة في التوظيف",
-            "ما نص المادة السابعة من قانون المقاطعة؟"
-        ]
-
-        for example in examples:
-            if st.button(f"📝 {example[:35]}...", key=example, use_container_width=True):
-                st.session_state.example_query = example
-                st.rerun()
-
-        st.markdown("---")
-
-        # Conversation history
-        st.markdown("### 📚 **المحادثات السابقة**")
-        conversations = api.get_conversations()
-
-        if conversations:
-            for conv in conversations[:5]:
-                st.text(f"💬 {conv.get('title', 'محادثة')[:30]}...")
-        else:
-            st.text("لا توجد محادثات سابقة")
-
-        st.markdown("---")
-
-        # Actions
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 مسح", use_container_width=True):
-                st.session_state.messages = []
-                st.rerun()
-
-        with col2:
-            if st.button("🚪 خروج", use_container_width=True):
-                st.session_state.clear()
-                st.rerun()
-
-
-# ============================================================================
-# LOGIN PAGE
-# ============================================================================
-
-def render_login_page():
-    """Render login page"""
-
-    st.markdown("""
-    <div class="header-gradient">
-        <h1 style="color: white; margin: 0;">⚖️ المساعد القانوني الذكي</h1>
-        <p style="margin: 10px 0; opacity: 0.9;">نظام ذكي للاستشارات القانونية</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Center the login form
-    col1, col2, col3 = st.columns([1, 2, 1])
-
-    with col2:
-        st.markdown("### 🔐 تسجيل الدخول")
-
-        # Auto-fill test credentials
-        email = st.text_input(
-            "البريد الإلكتروني",
-            value="hamidatabbas@gmail.com",
-            key="login_email"
-        )
-
-        password = st.text_input(
-            "كلمة المرور",
-            type="password",
-            value="92528240",
-            key="login_password"
-        )
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        if st.button("🚀 دخول", use_container_width=True, type="primary"):
-            with st.spinner("جاري تسجيل الدخول..."):
-                auth_data = FirebaseAuth.sign_in(email, password)
-
-                if auth_data:
-                    st.session_state.authenticated = True
-                    st.session_state.token = auth_data["idToken"]
-                    st.session_state.user_email = auth_data["email"]
-                    st.session_state.user_id = auth_data["localId"]
-                    st.session_state.messages = []
-                    st.success("✅ تم تسجيل الدخول بنجاح!")
-                    time.sleep(1)
-                    st.rerun()
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        with st.expander("ℹ️ معلومات التطبيق"):
-            st.markdown("""
-            **المميزات:**
-            - 🔍 بحث ذكي في 84,000+ نص قانوني
-            - 🤖 إجابات مدعومة بالذكاء الاصطناعي
-            - 📚 مصادر قانونية موثوقة
-            - 💬 حفظ تاريخ المحادثات
-
-            **للاختبار:**
-            - البريد: hamidatabbas@gmail.com
-            - كلمة المرور: 92528240
-            """)
-
-
-# ============================================================================
-# CHAT PAGE
-# ============================================================================
-
-def render_chat_page():
-    """Render main chat interface"""
-
-    # Initialize API
-    api = LegalAssistantAPI(st.session_state.token)
-
-    # Header
-    st.markdown("""
-    <div class="header-gradient">
-        <h1 style="color: white; margin: 0;">⚖️ المساعد القانوني الذكي</h1>
-        <p style="margin: 10px 0; opacity: 0.9;">اسأل أي سؤال قانوني وسأجيبك بدقة</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Render sidebar
-    render_sidebar(api)
-
-    # Initialize chat history
-    if 'messages' not in st.session_state:
-        st.session_state.messages = []
-
-    # Display chat history
-    for message in st.session_state.messages:
-        if message["role"] == "user":
-            st.markdown(f"""
-            <div class="user-message">
-                <strong>👤 أنت:</strong><br>
-                {message["content"]}
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div class="assistant-message">
-                <strong>⚖️ المساعد القانوني:</strong><br>
-                {message["content"]}
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Show sources
-            if "sources" in message and message["sources"]:
-                with st.expander("📚 عرض المصادر القانونية"):
-                    for i, source in enumerate(message["sources"], 1):
-                        render_source(source, i)
-
-    # Handle example query
-    if 'example_query' in st.session_state:
-        query = st.session_state.example_query
-        del st.session_state.example_query
-
-        # Add to messages
-        st.session_state.messages.append({
-            "role": "user",
-            "content": query
-        })
-
-        # Get response
-        response = api.query(query)
-
-        if response and response.get('success'):
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": response.get('answer', 'لم أتمكن من الحصول على إجابة'),
-                "sources": response.get('sources', [])
-            })
-
-        st.rerun()
-
-    # Chat input
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    with st.form(key="chat_form", clear_on_submit=True):
-        col1, col2 = st.columns([5, 1])
-
-        with col1:
-            user_input = st.text_area(
-                "اكتب سؤالك هنا...",
-                height=100,
-                placeholder="مثال: ما هي العقوبات في قانون مقاطعة إسرائيل؟",
-                label_visibility="collapsed"
-            )
-
-        with col2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            submit = st.form_submit_button("📤 إرسال", use_container_width=True, type="primary")
-
-    if submit and user_input:
-        # Add user message
-        st.session_state.messages.append({
-            "role": "user",
-            "content": user_input
-        })
-
-        # Get response from API
-        response = api.query(user_input)
-
-        if response and response.get('success'):
-            # Add assistant message
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": response.get('answer', 'لم أتمكن من الحصول على إجابة'),
-                "sources": response.get('sources', []),
-                "tokens_used": response.get('tokens_used', 0),
-                "tokens_remaining": response.get('tokens_remaining', 0)
-            })
-
-            st.success(f"✅ تم الرد! الرصيد المتبقي: {response.get('tokens_remaining', 0)} استفسار")
-        else:
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": "❌ عذراً، حدث خطأ في معالجة سؤالك. يرجى المحاولة مرة أخرى.",
-                "sources": []
-            })
-
-        st.rerun()
-
-    # Footer
     st.markdown("---")
-    st.markdown("""
-    <div style="text-align: center; color: #666; padding: 20px;">
-        <p>⚖️ النظام القانوني الذكي | مدعوم بـ <strong>Gemini Flash 2.0</strong> و <strong>RAG Technology</strong></p>
-        <p style="font-size: 12px;">💡 ملاحظة: هذا النظام للمساعدة فقط وليس بديلاً عن الاستشارة القانونية المهنية</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("### 📚 المصادر القانونية")
+
+    # Create tabs for different source types
+    tabs = []
+    tab_names = []
+
+    if sources.get('laws'):
+        tab_names.append(f"📜 القوانين ({len(sources['laws'])})")
+        tabs.append(sources['laws'])
+
+    if sources.get('procedures'):
+        tab_names.append(f"📋 الإجراءات ({len(sources['procedures'])})")
+        tabs.append(sources['procedures'])
+
+    if sources.get('rulings'):
+        tab_names.append(f"⚖️ الأحكام ({len(sources['rulings'])})")
+        tabs.append(sources['rulings'])
+
+    if tabs:
+        tab_objects = st.tabs(tab_names)
+
+        source_types = []
+        if sources.get('laws'):
+            source_types.append('law')
+        if sources.get('procedures'):
+            source_types.append('procedure')
+        if sources.get('rulings'):
+            source_types.append('ruling')
+
+        for tab, source_list, source_type in zip(tab_objects, tabs, source_types):
+            with tab:
+                for source in source_list:
+                    render_source_card(source, source_type)
+
+
+def render_metadata(metadata: Dict[str, Any]):
+    """Render metadata as badges"""
+    st.markdown("---")
+
+    badges = []
+
+    if metadata.get('intent'):
+        badges.append(f"نوع السؤال: {metadata['intent']}")
+
+    if metadata.get('total_sources'):
+        badges.append(f"مجموع المصادر: {metadata['total_sources']}")
+
+    if metadata.get('laws_count'):
+        badges.append(f"القوانين: {metadata['laws_count']}")
+
+    if metadata.get('procedures_count'):
+        badges.append(f"الإجراءات: {metadata['procedures_count']}")
+
+    if metadata.get('rulings_count'):
+        badges.append(f"الأحكام: {metadata['rulings_count']}")
+
+    if metadata.get('gemini_used') is not None:
+        badges.append(f"الذكاء الاصطناعي: {'✅' if metadata['gemini_used'] else '❌'}")
+
+    badge_html = " ".join([f'<span class="stat-badge">{badge}</span>' for badge in badges])
+    st.markdown(f'<div style="text-align: center; margin: 1rem 0;">{badge_html}</div>', unsafe_allow_html=True)
 
 
 # ============================================================================
-# MAIN APP
+# Main App
 # ============================================================================
 
 def main():
-    """Main application"""
+    # Page config
+    st.set_page_config(
+        page_title="محامي عُمان الذكي",
+        page_icon="⚖️",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
 
-    # Check authentication
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        render_login_page()
-    else:
-        render_chat_page()
+    # Apply CSS
+    st.markdown(ARABIC_CSS, unsafe_allow_html=True)
+
+    # Initialize session state
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+
+    # Sidebar
+    with st.sidebar:
+        st.markdown("### ⚙️ الإعدادات")
+
+        # API Health Check
+        st.markdown("#### 🏥 حالة النظام")
+        health = check_api_health()
+
+        if health:
+            st.success("✅ النظام يعمل بشكل طبيعي")
+
+            with st.expander("📊 تفاصيل النظام"):
+                st.info(f"""
+                **إجمالي المستندات:** {health.get('total_chunks', 0):,}
+
+                **أنواع المستندات:**
+                - القوانين
+                - الإجراءات
+                - الأحكام القضائية
+
+                **الذكاء الاصطناعي:** {'✅ مفعّل' if health.get('gemini_configured') else '❌ غير مفعّل'}
+                """)
+        else:
+            st.error("❌ لا يمكن الاتصال بالخادم")
+
+        st.markdown("---")
+
+        # Settings
+        use_ai = st.checkbox("استخدام الذكاء الاصطناعي", value=True,
+                             help="استخدام Gemini لتوليد إجابات أكثر تفصيلاً")
+
+        st.markdown("---")
+
+        # Clear history
+        if st.button("🗑️ مسح المحادثات"):
+            st.session_state.chat_history = []
+            st.rerun()
+
+        st.markdown("---")
+
+        # Examples
+        st.markdown("#### 💡 أمثلة للأسئلة")
+
+        example_questions = [
+            "ما هي شروط الزواج في القانون العماني؟",
+            "كيف يمكنني تقديم شكوى جنائية؟",
+            "ما هي عقوبة السرقة؟",
+            "المادة 10 من قانون الجزاء العماني",
+            "ما هي إجراءات الطلاق؟"
+        ]
+
+        for i, q in enumerate(example_questions):
+            if st.button(q, key=f"example_{i}"):
+                st.session_state.current_question = q
+
+    # Main content
+    render_header()
+
+    # Info box
+    st.markdown("""
+    <div class="info-box">
+        <strong>مرحباً بك في محامي عُمان الذكي!</strong><br>
+        اطرح سؤالك القانوني وسأقدم لك إجابة مستندة إلى القوانين والأحكام القضائية العمانية.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Question input
+    col1, col2 = st.columns([5, 1])
+
+    with col1:
+        question = st.text_input(
+            "اكتب سؤالك القانوني هنا:",
+            value=st.session_state.get('current_question', ''),
+            placeholder="مثال: ما هي شروط الزواج في القانون العماني؟",
+            key="question_input",
+            label_visibility="collapsed"
+        )
+
+    with col2:
+        submit = st.button("إرسال 📤", use_container_width=True)
+
+    # Handle submission
+    if submit and question.strip():
+        # Clear the example question
+        if 'current_question' in st.session_state:
+            del st.session_state.current_question
+
+        # Add to history
+        st.session_state.chat_history.append({
+            "type": "user",
+            "content": question,
+            "timestamp": datetime.now()
+        })
+
+        # Show loading
+        with st.spinner("🔍 جاري البحث في القوانين والأحكام..."):
+            response = query_legal_api(question, use_gemini=use_ai)
+
+        if response:
+            st.session_state.chat_history.append({
+                "type": "bot",
+                "content": response,
+                "timestamp": datetime.now()
+            })
+
+    # Display chat history
+    if st.session_state.chat_history:
+        st.markdown("---")
+
+        for chat in st.session_state.chat_history:
+            if chat["type"] == "user":
+                st.markdown(f"""
+                <div class="user-message">
+                    <strong>أنت:</strong><br>
+                    {chat['content']}
+                </div>
+                """, unsafe_allow_html=True)
+
+            else:  # bot
+                response = chat["content"]
+
+                # Check if sufficient sources
+                if not response.get('has_sufficient_sources'):
+                    st.markdown(f"""
+                    <div class="warning-message">
+                        <strong>⚠️ تنبيه:</strong><br>
+                        {response.get('direct_answer', 'عذراً، لا تتوفر معلومات كافية للإجابة على هذا السؤال.')}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # Show error details if available
+                    if response.get('error') == 'article_not_found':
+                        error_msg = response.get('error')
+                        st.markdown(f"""
+                        <div class="error-message">
+                            {error_msg}
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        if response.get('metadata', {}).get('available_articles'):
+                            with st.expander("📋 المواد المتاحة"):
+                                articles = response['metadata']['available_articles']
+                                st.write(", ".join(map(str, articles)))
+
+                else:
+                    # Show direct answer
+                    if response.get('direct_answer'):
+                        render_direct_answer(response['direct_answer'])
+
+                    # Show full answer in expander
+                    if response.get('answer'):
+                        with st.expander("📄 عرض الإجابة الكاملة", expanded=False):
+                            st.markdown(f"""
+                            <div class="bot-message">
+                                {response['answer'].replace(chr(10), '<br>')}
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                    # Show sources
+                    if response.get('sources'):
+                        render_sources(response['sources'])
+
+                    # Show metadata
+                    if response.get('metadata'):
+                        render_metadata(response['metadata'])
+
+                st.markdown("<br>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
